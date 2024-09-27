@@ -1,0 +1,6 @@
+venv
+*.xlsx
+*.csv
+*.ipynb
+Grazing Reports/
+Lab Reports 2021-2023/
