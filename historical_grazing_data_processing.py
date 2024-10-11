@@ -19,6 +19,10 @@ areas_to_replace = {
     "6RXWK Area": "South Area",
     "SoutheDVW Area": "Southeast Area",
     "South Strand Area (south of KWB Canal)": "Strand Area (South of KWB Canal)",
+    "North Main Area (north of KWB Canal)": "Main Area (North of KWB Canal)",
+    "North Strand Area (north of KWB Canal)": "Strand Area (North of KWB Canal)",
+    "South Main Area (north of KWB Canal)": "Main Area (South of KWB Canal)",
+    "South Strand Area (north of KWB Canal)": "Strand Area (South of KWB Canal)",
 }
 
 dates_to_replace = {
@@ -28,7 +32,7 @@ dates_to_replace = {
 }
 
 if __name__ == "__main__":
-    folder = "Grazing Reports"
+    folder = "Grazing Reports/test/rud"
 
     # Get files to read in path format
     files_to_read = []
