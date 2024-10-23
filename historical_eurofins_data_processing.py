@@ -5,6 +5,7 @@ import pandas as pd
 import pypdf
 from typing import Union
 from datetime import datetime
+from itertools import compress
 
 columns = [
     "sample_date",
@@ -83,6 +84,7 @@ def table_transformation(
     table_df: pd.DataFrame,
     well_name: Union[str, list],
     old_well_name: str,
+    sample_date: str
 ) -> pd.DataFrame:
     if table_df.shape[1] == 8:
         table_df.drop(columns=[3], inplace=True)
@@ -106,9 +108,11 @@ def table_transformation(
         else:
             table_df["state_well_number"] = well_name
     table_df["report_number"] = file.split("Lab Reports 2021-2023/Eurofins/")[1]
-    table_df["lab"] = "Eurofins"
+    table_df["lab"] = "EuroFins"
     table_df["date_added"] = datetime.today()
     table_df = table_df[table_df["sample_date"] != "Analyzed"]
+    table_df = table_df.drop(columns=["sample_date"])
+    table_df["sample_date"] = sample_date
     return table_df.dropna(subset=["sample_date", "time"]).reset_index(drop=True)
 
 
@@ -116,10 +120,19 @@ def extract_data_from_pdfs(columns, files_to_read, ocr):
     tables = []
     old_well_name = "None"
     for file in files_to_read:
+        sample_date = None
         reader = pypdf.PdfReader(file)
         for page_num in range(len(reader.pages)):
             page = reader.pages[page_num]
-            if "Laboratory Hits" not in page.extract_text():
+            text = page.extract_text()
+            if sample_date:
+                pass
+            else:
+                if "Sample Date" in text:
+                    text_with_sample_date = text.split("Sample Date\n")[1].splitlines()[0].split(" ")
+                    ind = ["/" in text and "30S" not in text for text in text_with_sample_date]
+                    sample_date = list(compress(text_with_sample_date, ind))[0]
+            if "Laboratory Hits" not in text:
                 continue
             table = get_table_from_pdf(file, page_num, ocr)
             if not table[page_num]:
@@ -128,7 +141,7 @@ def extract_data_from_pdfs(columns, files_to_read, ocr):
             well_name = get_well_name(page)
             well_name = old_well_name if not well_name else well_name
             table_df = table_transformation(
-                columns, file, table_df, well_name, old_well_name
+                columns, file, table_df, well_name, old_well_name,sample_date
             )
             tables.append(table_df)
             old_well_name = well_name[-1] if isinstance(well_name, list) else well_name
