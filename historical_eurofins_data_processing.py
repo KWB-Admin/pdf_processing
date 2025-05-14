@@ -8,8 +8,8 @@ from datetime import datetime
 from itertools import compress
 
 columns = [
-    "sample_date",
-    "time",
+    "lab_analyzed_date",
+    "lab_analyzed_time",
     "analyte",
     "result",
     "max_contam_limit",
@@ -22,6 +22,9 @@ columns_for_saving = [
     "date_added",
     "state_well_number",
     "sample_date",
+    "sample_time",
+    "lab_analyzed_date",
+    "lab_analyzed_time",
     "analyte",
     "result",
     "units",
@@ -84,7 +87,8 @@ def table_transformation(
     table_df: pd.DataFrame,
     well_name: Union[str, list],
     old_well_name: str,
-    sample_date: str
+    sample_date: str,
+    sample_time: str,
 ) -> pd.DataFrame:
     if table_df.shape[1] == 8:
         table_df.drop(columns=[3], inplace=True)
@@ -110,14 +114,18 @@ def table_transformation(
     table_df["report_number"] = file.split("Lab Reports 2021-2023/Eurofins/")[1]
     table_df["lab"] = "EuroFins"
     table_df["date_added"] = datetime.today()
-    table_df = table_df[table_df["sample_date"] != "Analyzed"]
-    table_df = table_df.drop(columns=["sample_date"])
+    table_df = table_df[table_df["lab_analyzed_date"] != "Analyzed"]
     table_df["sample_date"] = sample_date
-    return table_df.dropna(subset=["sample_date", "time"]).reset_index(drop=True)
+    table_df["sample_time"] = sample_time
+    return table_df.dropna(
+        subset=["lab_analyzed_date", "lab_analyzed_time"]
+    ).reset_index(drop=True)
 
 
 def extract_data_from_pdfs(columns, files_to_read, ocr):
     tables = []
+    sample_times = []
+    sample_dates = []
     old_well_name = "None"
     for file in files_to_read:
         sample_date = None
@@ -129,9 +137,12 @@ def extract_data_from_pdfs(columns, files_to_read, ocr):
                 pass
             else:
                 if "Sample Date" in text:
-                    text_with_sample_date = text.split("Sample Date\n")[1].splitlines()[0].split(" ")
-                    ind = ["/" in text and "30S" not in text for text in text_with_sample_date]
-                    sample_date = list(compress(text_with_sample_date, ind))[0]
+                    text_with_sample_date = (
+                        text.split("Sample Date\n")[1].splitlines()[0].split(" ")
+                    )
+                    sample_date = text_with_sample_date[1]
+                    sample_time = text_with_sample_date[2]
+                    sample_time = "%s:%s" % (sample_time[:2], sample_time[-2:])
             if "Laboratory Hits" not in text:
                 continue
             table = get_table_from_pdf(file, page_num, ocr)
@@ -141,13 +152,19 @@ def extract_data_from_pdfs(columns, files_to_read, ocr):
             well_name = get_well_name(page)
             well_name = old_well_name if not well_name else well_name
             table_df = table_transformation(
-                columns, file, table_df, well_name, old_well_name,sample_date
+                columns,
+                file,
+                table_df,
+                well_name,
+                old_well_name,
+                sample_date,
+                sample_time,
             )
             tables.append(table_df)
             old_well_name = well_name[-1] if isinstance(well_name, list) else well_name
-
-    pd.concat(tables).reset_index(drop=True)[columns_for_saving].to_parquet(
-        "processed_eurofins_data.parquet"
+    print(sample_times)
+    pd.concat(tables).reset_index(drop=True)[columns_for_saving].to_csv(
+        "processed_eurofins_data.csv"
     )
 
 
